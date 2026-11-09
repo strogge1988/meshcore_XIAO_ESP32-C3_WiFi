@@ -113,7 +113,7 @@ namespace {{
 
     source = replace_exactly_once(
         source,
-        '#else\n  #error "need to define filesystem"\n#endif\n#ifdef BLE_PIN_CODE',
+        '#else\n  #error "need to define filesystem"\n#endif\n#ifdef BLE_PIN_CODE // 123456 by default',
         '#else\n  #error "need to define filesystem"\n#endif\n'
         f'#if defined({MACRO})\n'
         '  // Read persisted Wi-Fi settings only AFTER the MeshCore data store is ready.\n'
@@ -124,7 +124,7 @@ namespace {{
         '  Serial.printf("[MC-C3] Starting %s transport\\n",\n'
         '                mc_use_wifi_only ? "Wi-Fi only" : "BLE setup");\n'
         '#endif\n'
-        '#ifdef BLE_PIN_CODE',
+        '#ifdef BLE_PIN_CODE // 123456 by default',
         'post-store transport selection',
     )
 
