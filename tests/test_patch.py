@@ -29,7 +29,7 @@ void setup() {
 #else
   #error "need to define filesystem"
 #endif
-#ifdef BLE_PIN_CODE
+#ifdef BLE_PIN_CODE // 123456 by default
   // set pin
 #endif
 #if defined(BLE_PIN_CODE)
