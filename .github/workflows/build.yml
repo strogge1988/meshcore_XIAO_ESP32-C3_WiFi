@@ -1,0 +1,90 @@
+name: MeshCore XIAO C3 - BLE Setup, WiFi Betrieb (1.18.0)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      # Alle Dateien aus diesem ZIP liegen im Root des eigenen Repositorys.
+      # Kein Checkout in einem separaten Unterordner!
+      - name: Checkout build files
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout official MeshCore 1.18.0
+        uses: actions/checkout@v4
+        with:
+          repository: meshcore-dev/MeshCore
+          ref: companion-v1.18.0
+          path: MeshCore
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify official release commit
+        working-directory: MeshCore
+        shell: bash
+        run: |
+          set -euo pipefail
+          git log -1 --format='%h %s'
+          test "$(git rev-parse --short=7 HEAD)" = '81dbae5'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate and patch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tests/test_patch.py
+          test -f apply_exclusive_transport.py
+          test -f platformio.local.ini
+          python -m unittest discover -s tests -v
+          cp platformio.local.ini MeshCore/platformio.local.ini
+          python apply_exclusive_transport.py MeshCore
+          grep -q 'MC_C3_EXCLUSIVE_PATCH_V1' MeshCore/examples/companion_radio/main.cpp
+          grep -q 'MESHCORE_C3_EXCLUSIVE_WIFI_SETUP' MeshCore/platformio.local.ini
+
+      - name: Install PlatformIO
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'platformio>=6.1,<7'
+          python -m platformio --version
+
+      - name: Compile firmware
+        working-directory: MeshCore
+        run: python -m platformio run -e Xiao_C3_companion_radio_ble_setup_wifi_only
+
+      - name: Make merged flash binary
+        working-directory: MeshCore
+        run: python -m platformio run -e Xiao_C3_companion_radio_ble_setup_wifi_only -t mergebin
+
+      - name: Collect binary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='MeshCore/.pio/build/Xiao_C3_companion_radio_ble_setup_wifi_only'
+          test -s "$base/firmware.bin"
+          test -s "$base/firmware-merged.bin"
+          mkdir -p dist
+          cp "$base/firmware.bin" 'dist/MeshCore-1.18.0-XIAO-C3-BLE-Setup-WiFi-Only.bin'
+          cp "$base/firmware-merged.bin" 'dist/MeshCore-1.18.0-XIAO-C3-BLE-Setup-WiFi-Only-merged.bin'
+          (cd dist && sha256sum *.bin > SHA256SUMS.txt)
+          ls -lh dist/
+
+      - name: Downloadable results
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeshCore-1.18.0-XIAO-C3-BLE-Setup-WiFi-Only
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
